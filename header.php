@@ -60,6 +60,10 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/core/classes/usersession.php';
         <a class="ml-2 mr-2" href="/lab5/lab5.php">
             <h6 style="margin-bottom: 0">Лабораторная работа №5</h6>
         </a>
+        |
+        <a class="ml-2 mr-2" href="/crud/main.php">
+            <h6 style="margin-bottom: 0">CRUD</h6>
+        </a>
     </div>
 
 </header>

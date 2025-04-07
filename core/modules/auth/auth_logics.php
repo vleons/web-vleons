@@ -9,7 +9,7 @@ class AuthLogics
 	private $errorMessages = [];
 	private $uriThisPage;
 
-	public function __construct()
+	public function __construct()//Инициализирует подключение к таблице пользователей
 	{
 		$this->usersTable = new UsersTable();
 	}
@@ -19,15 +19,15 @@ class AuthLogics
 
 		$this->uriThisPage = explode('?', $_SERVER['REQUEST_URI'])[0];
 
-		if (isset($_GET['logout']) && $_GET['logout'] == 'Y')
+		if (isset($_GET['logout']) && $_GET['logout'] == 'Y')// Обработка выхода
 		{
 			UserSession::logOut();
 			header('Location: ' . $this->uriThisPage);
 		}
 
-		if (isset($_POST['action']) == 'auth')
+		if (isset($_POST['action']) == 'auth')// Обработка авторизации
 			$this->logIn();
-
+// Подготовка данных для шаблона
 		$data = [
 			'URI_THIS_PAGE' => $this->uriThisPage,
 			'ERROR_MESSAGES' => $this->errorMessages,
@@ -37,16 +37,16 @@ class AuthLogics
 			],
 		];
 
-		include 'auth_front.php';
+		include 'auth_front.php';//Отображает фронтенд-часть
 	}
 
 
-	private function logIn()
+	private function logIn()//Получает пользователя по email из POST-данных.
 	{
-		$user = $this->usersTable->getByEmail($_POST['email']);
-
+		$user = $this->usersTable->getByEmail($_POST['email']);//Пытается найти пользователя по email 
+//Проверка существования пользователя
 		if ($user) {
-
+//Проверка пароля
 			if (password_verify($_POST['password'], $user['PASSWORD_HASH'])) {
 				UserSession::logIn($user['ID']);
 				header('Location: /');
