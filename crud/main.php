@@ -6,7 +6,10 @@ $tableModule = new ProductTableModule();
 $message = '';
 $errors = [];
 $oldInput = [];
-$baseUrl = 'main.php'; // Основной URL скрипта
+$baseUrl = 'main.php';
+
+// Получаем все доступные свойства
+$properties = $tableModule->findAllProperties();
 
 // Обработка POST-запроса
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -47,8 +50,6 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : null;
 if ($action === 'delete' && $id) {
     if ($tableModule->delete($id)) {
         $message = 'Продукт удален!';
-    } else {
-        $message = 'Ошибка при удалении!';
     }
 } elseif ($action === 'copy' && $id) {
     if ($tableModule->copy($id)) {
@@ -60,6 +61,7 @@ if ($action === 'delete' && $id) {
 
 $products = $tableModule->findAll();
 $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : null;
+$sales = $tableModule->findAllSales();
 
 ?>
 <div class="container mt-4">
@@ -97,9 +99,46 @@ $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : nu
                         </div>
                         
                         <div class="mb-3">
-                            <label for="sale_id" class="form-label">ID акции</label>
-                            <input type="number" class="form-control" id="sale_id" name="sale_id" 
-                                   value="<?= htmlspecialchars((string)($oldInput['sale_id'] ?? $editingProduct['sale_id'] ?? '')) ?>">
+                            <label for="sale_id" class="form-label">Акция</label>
+                            <?php
+                            // Получаем список скидок
+                            $sales = $tableModule->findAllSales();
+                            
+                            // Проверяем, есть ли скидки в базе
+                            if (empty($sales)) {
+                                echo '<div class="alert alert-warning">Нет доступных акций. Сначала создайте акции в разделе управления скидками.</div>';
+                            } else {
+                            ?>
+                            <select class="form-select" id="sale_id" name="sale_id" required>
+                                <option value="">-- Выберите акцию --</option>
+                                <?php foreach ($sales as $sale): ?>
+                                    <?php if (isset($sale['id'], $sale['name'], $sale['value'])): ?>
+                                        <option value="<?= htmlspecialchars($sale['id']) ?>"
+                                            <?= (isset($editingProduct['sale_id']) && $editingProduct['sale_id'] == $sale['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($sale['name']) ?> (<?= $sale['value'] ?>%)
+                                        </option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php } ?>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="properties_id" class="form-label">Свойство продукта</label>
+                            <select class="form-select form-select-lg" id="properties_id" name="properties_id" style="font-size: 1rem; padding: 0.5rem 1rem; height: auto;">
+                                <option value="">-- Выберите свойство --</option>
+                                <?php if (!empty($properties)): ?>
+                                    <?php foreach ($properties as $property): ?>
+                                        <?php if (isset($property['id'], $property['description'])): ?>
+                                            <option value="<?= htmlspecialchars((string)$property['id']) ?>" 
+                                                <?= (isset($oldInput['properties_id']) && $oldInput['properties_id'] == $property['id']) || 
+                                                    (isset($editingProduct['properties_id']) && $editingProduct['properties_id'] == $property['id']) ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($property['description']) ?>
+                                            </option>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
                         </div>
                         
                         <div class="mb-3">
@@ -142,7 +181,7 @@ $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : nu
                         </button>
                         
                         <?php if ($editingProduct): ?>
-                            <a href=$baseUrl class="btn btn-secondary">Отмена</a>
+                            <a href="<?= $baseUrl ?>" class="btn btn-secondary">Отмена</a>
                         <?php endif; ?>
                     </form>
                 </div>
@@ -156,42 +195,57 @@ $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : nu
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped">
+                    <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Изображение</th>
                                     <th>Название</th>
                                     <th>Цена</th>
+                                    <th>Акция</th>
+                                    <th>Свойство</th>
                                     <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($products)): ?>
                                     <tr>
-                                        <td colspan="5" class="text-center">Нет продуктов</td>
+                                        <td colspan="7" class="text-center">Нет продуктов</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($products as $product): ?>
                                         <tr>
-                                            <td><?= isset($product['id']) ? htmlspecialchars((string)$product['id']) : '' ?></td>
+                                            <td><?= htmlspecialchars($product['id'] ?? '') ?></td>
                                             <td>
                                                 <?php if (!empty($product['img'])): ?>
-                                                    <img src="<?= htmlspecialchars((string)$product['img']) ?>" class="img-thumbnail" style="max-height: 50px;">
+                                                    <img src="<?= htmlspecialchars($product['img']) ?>" class="img-thumbnail" style="max-height: 50px;">
                                                 <?php endif; ?>
                                             </td>
-                                            <td><?= isset($product['name']) ? htmlspecialchars((string)$product['name']) : '' ?></td>
-                                            <td><?= isset($product['price']) ? number_format((float)$product['price'], 2, '.', '') . ' ₽' : '0.00 ₽' ?></td>
+                                            <td><?= htmlspecialchars($product['name'] ?? '') ?></td>
+                                            <td><?= number_format((float)($product['price'] ?? 0), 2, '.', '') ?> ₽</td>
+                                            <td>
+                                                <?php if (!empty($product['sale_id'])): ?>
+                                                    <span class="badge bg-info">
+                                                        <?= htmlspecialchars($product['sale_name'] ?? '') ?> 
+                                                        (<?= htmlspecialchars($product['sale_value'] ?? 0) ?>%)
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Нет акции</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?= !empty($product['property_description']) ? htmlspecialchars($product['property_description']) : 'Не указано' ?>
+                                            </td>
                                             <td>
                                                 <?php if (isset($product['id'])): ?>
-                                                    <div class="btn-group" role="group">
-                                                        <a href="<?=$baseUrl?>?action=edit&id=<?= $product['id'] ?>" class="btn btn-sm btn-warning">
-                                                            <i class="fas fa-edit"></i> Изменить
+                                                    <div class="btn-group">
+                                                        <a href="main.php?action=edit&id=<?= $product['id'] ?>" class="btn btn-sm btn-warning">
+                                                            <i class="fas fa-edit"></i>
                                                         </a>
-                                                        <a href="<?=$baseUrl?>?action=delete&id=<?= $product['id'] ?>" 
+                                                        <a href="main.php?action=delete&id=<?= $product['id'] ?>" 
                                                         class="btn btn-sm btn-danger"
-                                                        onclick="return confirm('Вы уверены, что хотите удалить этот продукт?')">
-                                                            <i class="fas fa-trash"></i> Удалить
+                                                        onclick="return confirm('Удалить продукт?')">
+                                                            <i class="fas fa-trash"></i>
                                                         </a>
                                                     </div>
                                                 <?php endif; ?>
@@ -209,6 +263,7 @@ $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : nu
 </div>
 
 <script>
+// JavaScript валидация формы (остается без изменений)
 document.querySelector('form').addEventListener('submit', function(e) {
     let valid = true;
     const name = this.elements.name;
