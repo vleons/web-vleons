@@ -8,8 +8,9 @@ $errors = [];
 $oldInput = [];
 $baseUrl = 'main.php';
 
-// Получаем все доступные свойства
+// Получаем все доступные свойства и скидки
 $properties = $tableModule->findAllProperties();
+$sales = $tableModule->findAllSales();
 
 // Обработка POST-запроса
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -61,8 +62,6 @@ if ($action === 'delete' && $id) {
 
 $products = $tableModule->findAll();
 $editingProduct = ($action === 'edit' && $id) ? $tableModule->findById($id) : null;
-$sales = $tableModule->findAllSales();
-
 ?>
 <div class="container mt-4">
     <h1 class="mb-4">Управление продуктами</h1>
@@ -100,44 +99,31 @@ $sales = $tableModule->findAllSales();
                         
                         <div class="mb-3">
                             <label for="sale_id" class="form-label">Акция</label>
-                            <?php
-                            // Получаем список скидок
-                            $sales = $tableModule->findAllSales();
-                            
-                            // Проверяем, есть ли скидки в базе
-                            if (empty($sales)) {
-                                echo '<div class="alert alert-warning">Нет доступных акций. Сначала создайте акции в разделе управления скидками.</div>';
-                            } else {
-                            ?>
-                            <select class="form-select" id="sale_id" name="sale_id" required>
-                                <option value="">-- Выберите акцию --</option>
+                            <select class="form-select" id="sale_id" name="sale_id">
+                                <option value="">-- Без акции --</option>
                                 <?php foreach ($sales as $sale): ?>
                                     <?php if (isset($sale['id'], $sale['name'], $sale['value'])): ?>
                                         <option value="<?= htmlspecialchars($sale['id']) ?>"
-                                            <?= (isset($editingProduct['sale_id']) && $editingProduct['sale_id'] == $sale['id']) ? 'selected' : '' ?>>
+                                            <?= (isset($editingProduct['sale_id'])) && $editingProduct['sale_id'] == $sale['id'] ? 'selected' : '' ?>>
                                             <?= htmlspecialchars($sale['name']) ?> (<?= $sale['value'] ?>%)
                                         </option>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </select>
-                            <?php } ?>
                         </div>
                         
                         <div class="mb-3">
                             <label for="properties_id" class="form-label">Свойство продукта</label>
-                            <select class="form-select form-select-lg" id="properties_id" name="properties_id" style="font-size: 1rem; padding: 0.5rem 1rem; height: auto;">
+                            <select class="form-select" id="properties_id" name="properties_id">
                                 <option value="">-- Выберите свойство --</option>
-                                <?php if (!empty($properties)): ?>
-                                    <?php foreach ($properties as $property): ?>
-                                        <?php if (isset($property['id'], $property['description'])): ?>
-                                            <option value="<?= htmlspecialchars((string)$property['id']) ?>" 
-                                                <?= (isset($oldInput['properties_id']) && $oldInput['properties_id'] == $property['id']) || 
-                                                    (isset($editingProduct['properties_id']) && $editingProduct['properties_id'] == $property['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($property['description']) ?>
-                                            </option>
-                                        <?php endif; ?>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
+                                <?php foreach ($properties as $property): ?>
+                                    <?php if (isset($property['id'], $property['description'])): ?>
+                                        <option value="<?= htmlspecialchars($property['id']) ?>" 
+                                            <?= (isset($editingProduct['properties_id'])) && $editingProduct['properties_id'] == $property['id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($property['description']) ?>
+                                        </option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         
@@ -189,13 +175,13 @@ $sales = $tableModule->findAllSales();
         </div>
         
         <div class="col-md-7">
-            <div class="card">
+            <div class="card mb-4">
                 <div class="card-header">
                     <h3 class="card-title">Список продуктов</h3>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                    <table class="table table-striped">
+                        <table class="table table-striped">
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -225,27 +211,44 @@ $sales = $tableModule->findAllSales();
                                             <td><?= number_format((float)($product['price'] ?? 0), 2, '.', '') ?> ₽</td>
                                             <td>
                                                 <?php if (!empty($product['sale_id'])): ?>
-                                                    <span class="badge bg-info">
-                                                        <?= htmlspecialchars($product['sale_name'] ?? '') ?> 
-                                                        (<?= htmlspecialchars($product['sale_value'] ?? 0) ?>%)
-                                                    </span>
+                                                    <?php 
+                                                    $sale = array_filter($sales, function($s) use ($product) { 
+                                                        return isset($s['id']) && $s['id'] == $product['sale_id']; 
+                                                    });
+                                                    $sale = reset($sale);
+                                                    ?>
+                                                    <?php if ($sale && isset($sale['name'], $sale['value'])): ?>
+                                                        <span class="badge bg-info">
+                                                            <?= htmlspecialchars($sale['name']) ?> (<?= $sale['value'] ?>%)
+                                                        </span>
+                                                    <?php endif; ?>
                                                 <?php else: ?>
-                                                    <span class="badge bg-secondary">Нет акции</span>
+                                                    <span class="badge bg-secondary">Нет</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?= !empty($product['property_description']) ? htmlspecialchars($product['property_description']) : 'Не указано' ?>
+                                                <?php if (!empty($product['properties_id'])): ?>
+                                                    <?php 
+                                                    $property = array_filter($properties, function($p) use ($product) { 
+                                                        return isset($p['id']) && $p['id'] == $product['properties_id']; 
+                                                    });
+                                                    $property = reset($property);
+                                                    ?>
+                                                    <?= $property && isset($property['description']) ? htmlspecialchars($property['description']) : 'Не указано' ?>
+                                                <?php else: ?>
+                                                    Не указано
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <?php if (isset($product['id'])): ?>
-                                                    <div class="btn-group">
-                                                        <a href="main.php?action=edit&id=<?= $product['id'] ?>" class="btn btn-sm btn-warning">
-                                                            <i class="fas fa-edit"></i>
+                                                    <div class="btn-group" role="group" style="white-space: nowrap;">
+                                                        <a href="<?= $baseUrl ?>?action=edit&id=<?= $product['id'] ?>" class="btn btn-sm btn-warning px-3">
+                                                            <i class="fas fa-edit me-1"></i>Изменить
                                                         </a>
-                                                        <a href="main.php?action=delete&id=<?= $product['id'] ?>" 
-                                                        class="btn btn-sm btn-danger"
-                                                        onclick="return confirm('Удалить продукт?')">
-                                                            <i class="fas fa-trash"></i>
+                                                        <a href="<?= $baseUrl ?>?action=delete&id=<?= $product['id'] ?>" 
+                                                           class="btn btn-sm btn-danger px-3"
+                                                           onclick="return confirm('Вы уверены, что хотите удалить этот продукт?')">
+                                                            <i class="fas fa-trash me-1"></i>Удалить
                                                         </a>
                                                     </div>
                                                 <?php endif; ?>
@@ -258,12 +261,117 @@ $sales = $tableModule->findAllSales();
                     </div>
                 </div>
             </div>
+
+            <!-- Таблица скидок -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Доступные скидки</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Размер скидки</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($sales)): ?>
+                                    <tr>
+                                        <td colspan="3" class="text-center">Нет доступных скидок</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($sales as $sale): ?>
+                                        <?php if (isset($sale['id'], $sale['name'], $sale['value'])): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($sale['id']) ?></td>
+                                                <td><?= htmlspecialchars($sale['name']) ?></td>
+                                                <td><?= htmlspecialchars($sale['value']) ?>%</td>
+                                            </tr>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
+<style>
+/* Улучшаем отображение кнопок */
+.btn-group .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Делаем кнопки более заметными */
+.btn-warning {
+    color: #000;
+}
+
+/* Улучшаем таблицу скидок */
+.table-sm th, 
+.table-sm td {
+    padding: 0.3rem;
+}
+
+.form-select {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .form-select:hover {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    }
+    
+    .form-select:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .form-select-lg {
+        min-height: 46px;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    
+    .sale-badge {
+        display: inline-block;
+        padding: 0.25em 0.4em;
+        font-size: 75%;
+        font-weight: 700;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.25rem;
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+        border-radius: 0.25rem;
+    }
+    
+    .bg-info {
+        background-color: #0dcaf0!important;
+    }
+    
+    .bg-secondary {
+        background-color: #6c757d!important;
+    }
+</style>
+
 <script>
-// JavaScript валидация формы (остается без изменений)
 document.querySelector('form').addEventListener('submit', function(e) {
     let valid = true;
     const name = this.elements.name;
